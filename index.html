@@ -1,172 +1,220 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IBONIRIUM · 3D Cosmic Space Weather Live</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IBONIRIUM · Terrarium · EXP‑01 · Star Simulation</title>
+
 <style>
-  body { margin:0; overflow:hidden; background:#0a0e14; }
-  #info{
-    position:absolute; top:16px; left:16px; font-family:monospace;
-    color:#aaffcc; font-size:11px; line-height:1.4; text-shadow:0 0 3px #000;
-    max-width:340px;
-  }
-  #info b{ color:#6fffa0; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; height:100%;
+  background:#000;
+  overflow:hidden;
+  font-family: monospace;
+}
+canvas { position:fixed; inset:0; }
+#sensors{ position:fixed; left:0; right:0; bottom:0; height:140px; pointer-events:none; }
+#info {
+  position:fixed;
+  bottom:12px; left:12px;
+  color:#9affc2;
+  font-size:12px;
+  line-height:1.4;
+  opacity:0.9;
+}
+#panel {
+  position:fixed;
+  bottom:12px; right:12px;
+  max-width:360px;
+  font-size:12px;
+  color:#c7ffd9;
+  line-height:1.45;
+  background:linear-gradient(to left,rgba(0,0,0,0.6),transparent);
+  padding:10px 14px;
+}
 </style>
 </head>
 <body>
 
+<canvas id="stars"></canvas>
+<canvas id="terrarium"></canvas>
+<canvas id="sensors"></canvas>
+
 <div id="info">
-  <div>Solar Wind Speed: <b><span id="wind_speed">–</span> km/s</b></div>
-  <div>Solar Wind Density: <b><span id="wind_den">–</span> /cm³</b></div>
-  <div>IMF Bt: <b><span id="bt">–</span> nT</b></div>
-  <div>IMF Bz: <b><span id="bz">–</span> nT</b></div>
-  <div>Planetary Kp: <b><span id="kp">–</span></b></div>
-  <div>F10.7 Flux: <b><span id="f107">–</span> sfu</b></div>
-  <div>X‑ray Flux (GOES): <b><span id="xray">–</span></b></div>
-  <div>Proton Flux ≥10 MeV: <b><span id="p10">–</span></b></div>
-  <div>Aurora Prob (N): <b><span id="aurora_n">–</span>%</b></div>
-  <div>Aurora Prob (S): <b><span id="aurora_s">–</span>%</b></div>
-  <div>Radio Scale (R): <b><span id="scaleR">–</span></b></div>
-  <div>Geomag Scale (G): <b><span id="scaleG">–</span></b></div>
-  <div>Solar Rad Scale (S): <b><span id="scaleS">–</span></b></div>
-  <div>Last Update: <b><span id="last_update">–</span></b></div>
+<b>IBONIRIUM · LAB TERRARIUM · EXP‑01</b><br>
+Phase: <span id="phase">Growth</span><br>
+Day: <span id="day">–</span><br>
+Solar SSN: <span id="ssn">–</span><br>
+Solar Factor: <span id="sf">–</span><br>
+Star Energy: <span id="ge">–</span><br>
+Target: 13 December
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+<div id="panel">
+<b>СТАН ЕКСПЕРИМЕНТУ</b><br>
+Це живий космічний експеримент. Зірка пульсує та реагує на реальні сонячні дані NOAA. Швидкість пульсації, розмір променів та світіння залежать від сонячної активності. <br><br>
+До <b>13 грудня</b> накопичується енергія зірки. У цей день експеримент переходить у фінальну фазу: пульсація стабілізується, стан фіксується.
+</div>
 
 <script>
-let scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0a0e14, 0.028);
+/* ===== CANVAS ===== */
+const starCanvas = document.getElementById('stars');
+const tCanvas = document.getElementById('terrarium');
+const sctx = starCanvas.getContext('2d');
+const tctx = tCanvas.getContext('2d');
+const sensorCanvas = document.getElementById('sensors');
+const scx = sensorCanvas.getContext('2d');
 
-let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 2000);
-camera.position.set(0, 80, 220);
-
-let renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x0a0e14);
-document.body.appendChild(renderer.domElement);
-
-let controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-
-// 3D зірка
-const count = 15000;
-let geom = new THREE.BufferGeometry();
-let pos = new Float32Array(count*3);
-let col = new Float32Array(count*3);
-for(let i=0; i<count; i++){
-  const r = 40 + Math.random()*20;
-  const theta = Math.random()*Math.PI*2;
-  const phi = Math.acos(2*Math.random()-1);
-  pos[3*i]   = r*Math.sin(phi)*Math.cos(theta);
-  pos[3*i+1] = r*Math.sin(phi)*Math.sin(theta);
-  pos[3*i+2] = r*Math.cos(phi);
-  col[3*i]   = 0.8 + Math.random()*0.2;
-  col[3*i+1] = 0.3 + Math.random()*0.4;
-  col[3*i+2] = 0.9 + Math.random()*0.1;
+function resize(){
+  starCanvas.width = tCanvas.width = sensorCanvas.width = innerWidth;
+  starCanvas.height = tCanvas.height = innerHeight;
+  sensorCanvas.height = 140;
 }
-geom.setAttribute('position', new THREE.BufferAttribute(pos,3));
-geom.setAttribute('color', new THREE.BufferAttribute(col,3));
+addEventListener('resize', resize); resize();
 
-let mat = new THREE.PointsMaterial({
-  size:2.2, vertexColors:true,
-  transparent:true, opacity:0.9,
-  blending:THREE.AdditiveBlending,
-  depthWrite:false
-});
-let star = new THREE.Points(geom, mat);
-scene.add(star);
-
-let glow = new THREE.PointLight(0xffddaa,1.0,500);
-scene.add(glow);
-
-// Space weather data
-let spaceData = {
-  wind_speed:0, wind_den:0, bt:0, bz:0, kp:0,
-  f107:0, xray:0, p10:0, aurora_n:0, aurora_s:0,
-  scaleR:'–', scaleG:'–', scaleS:'–', last_update:'–'
-};
-
-async function fetchSpaceWeather(){
-  try{
-    const wind = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json');
-    const windJson = await wind.json();
-    const mag  = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json');
-    const magJson = await mag.json();
-    const kpJson = await fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json').then(r=>r.json());
-    const f107Json = await fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json').then(r=>r.json());
-    const xrayJson = await fetch('https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json').then(r=>r.json());
-    const pfluxJson= await fetch('https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json').then(r=>r.json());
-    const ovation = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json').then(r=>r.json());
-    const scales = await fetch('https://services.swpc.noaa.gov/products/noaa-scales.json').then(r=>r.json());
-
-    const w = windJson[windJson.length-1]||windJson[0];
-    spaceData.wind_speed = w.speed || spaceData.wind_speed;
-    spaceData.wind_den   = w.density|| spaceData.wind_den;
-
-    const m = magJson[magJson.length-1]||magJson[0];
-    spaceData.bt = m.Bt||spaceData.bt;
-    spaceData.bz = m.Bz||spaceData.bz;
-
-    const k = kpJson[kpJson.length-1]||kpJson[0];
-    spaceData.kp = k.kp||spaceData.kp;
-
-    const f = f107Json[f107Json.length-1]||f107Json[0];
-    spaceData.f107 = f.f107||spaceData.f107;
-
-    const xr = xrayJson[xrayJson.length-1]||xrayJson[0];
-    spaceData.xray = xr.flux||spaceData.xray;
-
-    const p  = pfluxJson[pfluxJson.length-1]||pfluxJson[0];
-    spaceData.p10 = p.protons_10_mev||spaceData.p10;
-
-    spaceData.aurora_n = ovation.probability_northern|| spaceData.aurora_n;
-    spaceData.aurora_s = ovation.probability_southern|| spaceData.aurora_s;
-
-    const sKeys = Object.keys(scales);
-    const latestScales = scales[sKeys[sKeys.length-1]];
-    spaceData.scaleR = latestScales.R?.Scale||spaceData.scaleR;
-    spaceData.scaleG = latestScales.G?.Scale||spaceData.scaleG;
-    spaceData.scaleS = latestScales.S?.Scale||spaceData.scaleS;
-
-    spaceData.last_update = new Date().toISOString().split('T')[1].split('.')[0];
-
-    for(let k in spaceData){
-      if(document.getElementById(k)) document.getElementById(k).textContent = spaceData[k];
-    }
-  }catch(e){ console.warn("SW fetch error:",e); }
+/* ===== STAR FIELD ===== */
+const stars = Array.from({length:240},()=>({x:Math.random(),y:Math.random(),z:Math.random()}));
+function drawStars(){
+  sctx.clearRect(0,0,starCanvas.width,starCanvas.height);
+  stars.forEach(st=>{
+    st.y+=0.00025*(1+st.z);
+    if(st.y>1) st.y=0;
+    sctx.globalAlpha=0.3+st.z*0.6;
+    sctx.fillStyle="#fff";
+    sctx.beginPath();
+    sctx.arc(st.x*starCanvas.width, st.y*starCanvas.height, st.z*1.4, 0, Math.PI*2);
+    sctx.fill();
+  });
+  sctx.globalAlpha=1;
 }
-fetchSpaceWeather();
-setInterval(fetchSpaceWeather, 120000);
 
-function animate(){
-  requestAnimationFrame(animate);
-  const t = Date.now()*0.001;
-  let arr = geom.attributes.position.array;
-  for(let i=0; i<count; i++){
-    arr[3*i]   += Math.sin(t + i*0.01) * 0.01 * (1 + spaceData.wind_speed/600);
-    arr[3*i+1] += Math.cos(t + i*0.02) * 0.008;
+/* ===== SIMPLE NOISE ===== */
+function noise(x,y){
+  return Math.sin(x*12.989+y*78.233)*43758.5453%1;
+}
+
+/* ===== ENV DATA ===== */
+let solarFactor = 1;
+let solarSSN = 0;
+let starEnergy = 0;
+
+/* ===== STAR SIMULATION ===== */
+class Star{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.radius = 50 + Math.random()*20;
+    this.pulse = Math.random()*Math.PI*2;
+    this.beams = Array.from({length:16},()=>Math.random()*Math.PI*2);
   }
-  geom.attributes.position.needsUpdate=true;
-
-  const scale = 1 + spaceData.kp/10 + Math.min(spaceData.f107/300,1);
-  star.scale.set(scale, scale, scale);
-
-  glow.intensity = 0.7 + spaceData.kp/10;
-
-  controls.update();
-  renderer.render(scene,camera);
+  
+  update(){
+    this.pulse += 0.05 * solarFactor;
+  }
+  
+  draw(){
+    const glow = Math.sin(this.pulse)*10*solarFactor;
+    const radius = this.radius + glow;
+    
+    // core glow
+    const gradient = tctx.createRadialGradient(this.x, this.y, radius*0.2, this.x, this.y, radius);
+    gradient.addColorStop(0,'rgba(255,255,200,'+(0.8*solarFactor)+')');
+    gradient.addColorStop(0.5,'rgba(255,180,100,'+(0.5*solarFactor)+')');
+    gradient.addColorStop(1,'rgba(255,100,50,0)');
+    tctx.fillStyle = gradient;
+    tctx.beginPath();
+    tctx.arc(this.x, this.y, radius,0,Math.PI*2);
+    tctx.fill();
+    
+    // beams
+    this.beams.forEach((angle,i)=>{
+      const length = radius*1.5 + Math.sin(Date.now()*0.002 + i)*15*solarFactor;
+      tctx.strokeStyle=`rgba(255,220,120,${0.2+0.3*Math.random()})`;
+      tctx.lineWidth=1.5;
+      tctx.beginPath();
+      tctx.moveTo(this.x, this.y);
+      tctx.lineTo(this.x + Math.cos(angle)*length, this.y + Math.sin(angle)*length);
+      tctx.stroke();
+    });
+  }
 }
-animate();
 
-window.addEventListener('resize', ()=>{
-  camera.aspect=window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
-});
+const star = new Star(tCanvas.width/2, tCanvas.height/2);
+
+/* ===== NOAA SOLAR API ===== */
+async function updateSolar(){
+  try{
+    const r = await fetch('https://services.swpc.noaa.gov/json/solar-cycle/predicted-solar-cycle.json');
+    const d = await r.json();
+    const l = d[d.length-1];
+    solarSSN = l.predicted_ssn;
+    solarFactor = Math.min(3,0.6+solarSSN/120);
+    starEnergy = solarFactor * (0.8+Math.random()*0.2);
+    document.getElementById('ssn').textContent = solarSSN.toFixed(1);
+    document.getElementById('sf').textContent = solarFactor.toFixed(2);
+    document.getElementById('ge').textContent = starEnergy.toFixed(2);
+  }catch(e){ solarFactor=1; starEnergy=1; }
+}
+updateSolar(); setInterval(updateSolar,1800000);
+
+/* ===== SENSORS ===== */
+function drawSensors(){
+  scx.clearRect(0,0,sensorCanvas.width,sensorCanvas.height);
+  const baseY = 110;
+
+  // ground line
+  scx.strokeStyle='rgba(120,255,180,0.25)';
+  scx.beginPath(); scx.moveTo(0,baseY); scx.lineTo(sensorCanvas.width,baseY); scx.stroke();
+
+  // solar sensor
+  scx.fillStyle='rgba(255,200,120,0.8)';
+  scx.beginPath();
+  scx.arc(80, baseY-40, 10+solarFactor*3, 0, Math.PI*2);
+  scx.fill();
+  scx.fillText('☀ сонце', 50, baseY+20);
+
+  // star energy meter
+  scx.strokeStyle='rgba(255,220,100,0.8)';
+  scx.beginPath();
+  scx.moveTo(160, baseY);
+  scx.lineTo(160, baseY-starEnergy*25);
+  scx.stroke();
+  scx.fillText('⭐ енергія', 140, baseY+20);
+
+  // time sensor
+  const now = new Date();
+  const t = Math.min(1,(now-START_DATE)/(STOP_DATE-START_DATE));
+  scx.strokeStyle='rgba(180,180,255,0.7)';
+  scx.beginPath();
+  scx.arc(260, baseY, 30, -Math.PI/2, -Math.PI/2 + t*Math.PI*2);
+  scx.stroke();
+  scx.fillText('⏳ цикл', 235, baseY+20);
+}
+
+/* ===== LOOP ===== */
+const START_DATE = new Date('2026-01-01');
+const STOP_DATE = new Date('2026-12-13');
+function updateDay(){
+  const now = new Date();
+  const day = Math.floor((now-START_DATE)/(1000*60*60*24));
+  document.getElementById('day').textContent = day>=0?day:0;
+  document.getElementById('phase').textContent = now<STOP_DATE?'Growth':'Final';
+}
+setInterval(updateDay,60000);
+updateDay();
+
+function loop(){
+  drawStars();
+  drawSensors();
+  if(new Date()<STOP_DATE){
+    tctx.clearRect(0,0,tCanvas.width,tCanvas.height);
+    star.update();
+    star.draw();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
 </script>
-
 </body>
 </html>
