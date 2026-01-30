@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>IBONIRIUM · Terrarium · EXP‑01 · Realistic Star</title>
+<title>IBONIRIUM · EXP‑01 · Realistic Star</title>
 
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -17,21 +17,15 @@ canvas { position:fixed; inset:0; }
 #sensors{ position:fixed; left:0; right:0; bottom:0; height:140px; pointer-events:none; }
 #info {
   position:fixed;
-  bottom:12px; left:12px;
+  top:20px; left:20px;
   color:#9affc2;
   font-size:12px;
   line-height:1.4;
   opacity:0.9;
-}
-#panel {
-  position:fixed;
-  bottom:12px; right:12px;
-  max-width:360px;
-  font-size:12px;
-  color:#c7ffd9;
-  line-height:1.45;
-  background:linear-gradient(to left,rgba(0,0,0,0.6),transparent);
-  padding:10px 14px;
+  max-width:300px;
+  background:rgba(0,0,0,0.3);
+  padding:10px 12px;
+  border-radius:6px;
 }
 </style>
 </head>
@@ -43,18 +37,13 @@ canvas { position:fixed; inset:0; }
 
 <div id="info">
 <b>IBONIRIUM · LAB TERRARIUM · EXP‑01</b><br>
+Мініатюрна реалістична башатошарова зірка.<br><br>
 Phase: <span id="phase">Growth</span><br>
 Day: <span id="day">–</span><br>
 Solar SSN: <span id="ssn">–</span><br>
 Solar Factor: <span id="sf">–</span><br>
 Star Energy: <span id="ge">–</span><br>
 Target: 13 December
-</div>
-
-<div id="panel">
-<b>СТАН ЕКСПЕРИМЕНТУ</b><br>
-Мініатюрна реалістична башатошарова зірка в лівому верхньому куті. Поверхня пульсує, тремтить і випромінює енергію відповідно до сонячної активності. <br><br>
-До <b>13 грудня</b> накопичується енергія зірки. Форма і пульсація фіксуються у фінальній фазі.
 </div>
 
 <script>
@@ -99,12 +88,11 @@ class RealisticStar{
   constructor(x,y){
     this.x = x;
     this.y = y;
-    this.radius = 50; // трохи більше
+    this.radius = 50;
   }
   
   update(){
     const time = Date.now();
-    // Пульсація та дрібне тремтіння поверхні
     this.currentRadius = this.radius + Math.sin(time*0.002)*10*solarFactor + (Math.random()-0.5)*3*solarFactor;
   }
   
@@ -125,7 +113,7 @@ class RealisticStar{
     tctx.arc(0,0,this.currentRadius,0,Math.PI*2);
     tctx.fill();
     
-    // Енергетичні хвилі поверхні
+    // Енергетичні хвилі
     for(let i=0;i<5;i++){
       tctx.beginPath();
       const r = this.currentRadius + Math.sin(time*0.005+i)*5*starEnergy;
@@ -139,8 +127,8 @@ class RealisticStar{
   }
 }
 
-// Розташування лівий верхній кут
-const realisticStar = new RealisticStar(80,80);
+// Розташування поруч з описом
+const realisticStar = new RealisticStar(120,100);
 
 /* ===== NOAA SOLAR API ===== */
 async function updateSolar(){
