@@ -46,17 +46,27 @@ controls.maxDistance = 400;
 const particleCount = 8000;
 let starParticles = new THREE.BufferGeometry();
 let positions = new Float32Array(particleCount*3);
+let basePositions = new Float32Array(particleCount*3);
 let velocities = new Float32Array(particleCount*3);
 let colors = new Float32Array(particleCount*3);
 
 for(let i=0;i<particleCount;i++){
-  let r = Math.random()*10 + 5; // відстань від центру
+  // сфера
+  let r = Math.random()*10 + 5;
   let theta = Math.random()*Math.PI*2;
   let phi = Math.random()*Math.PI;
 
-  positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
-  positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-  positions[i*3+2] = r * Math.cos(phi);
+  let x = r * Math.sin(phi) * Math.cos(theta);
+  let y = r * Math.sin(phi) * Math.sin(theta);
+  let z = r * Math.cos(phi);
+
+  positions[i*3] = x;
+  positions[i*3+1] = y;
+  positions[i*3+2] = z;
+
+  basePositions[i*3] = x;
+  basePositions[i*3+1] = y;
+  basePositions[i*3+2] = z;
 
   velocities[i*3] = (Math.random()-0.5)*0.05;
   velocities[i*3+1] = (Math.random()-0.5)*0.05;
@@ -92,14 +102,13 @@ scene.add(starLight);
 let starActivity = 0, brightness = 1, flareChance = 0;
 
 // ==================================================
-// Локальні вихори світлових частинок
-function applySolarFlares(t){
+// Турбулентність частинок при фларі
+function applySolarFlares(){
   for(let i=0;i<particleCount;i++){
-    positions[i*3] += velocities[i*3] * 0.5;
-    positions[i*3+1] += velocities[i*3+1] * 0.5;
-    positions[i*3+2] += velocities[i*3+2] * 0.5;
+    positions[i*3] += (basePositions[i*3]-positions[i*3])*0.02 + velocities[i*3]*0.5;
+    positions[i*3+1] += (basePositions[i*3+1]-positions[i*3+1])*0.02 + velocities[i*3+1]*0.5;
+    positions[i*3+2] += (basePositions[i*3+2]-positions[i*3+2])*0.02 + velocities[i*3+2]*0.5;
 
-    // турбулентність при спалахах
     if(Math.random()<flareChance*0.002){
       positions[i*3] += (Math.random()-0.5)*2;
       positions[i*3+1] += (Math.random()-0.5)*2;
@@ -109,46 +118,41 @@ function applySolarFlares(t){
 }
 
 // ==================================================
-// Підключення зоряних даних через NASA API (солярні індекси)
+// Підключення NASA API для сонячних фларів
 async function updateStarData(){
   try{
-    // API NASA для сонячних фларів / активності
     const r = await fetch('https://api.nasa.gov/DONKI/FLR?startDate=2026-01-01&endDate=2026-01-30&api_key=DEMO_KEY');
     const data = await r.json();
 
-    // Проста оцінка активності
     starActivity = data.length;
-    flareChance = starActivity/10; // чим більше фларів, тим більше турбуленції
+    flareChance = starActivity/10;
     brightness = Math.min(2,1 + starActivity*0.05);
 
-    // оновлення UI
     document.getElementById('activity').textContent = starActivity;
     document.getElementById('brightness').textContent = brightness.toFixed(2);
     document.getElementById('flares').textContent = flareChance.toFixed(2);
 
-    // налаштування матеріалу
-    starMaterial.opacity = 0.6 + Math.random()*0.2;
     starMaterial.size = 2.0 + brightness;
     starLight.intensity = brightness;
   }catch(e){ console.warn(e); }
 }
 
 updateStarData();
-setInterval(updateStarData,10*60*1000); // оновлення кожні 10 хв
+setInterval(updateStarData,10*60*1000);
 
 // ==================================================
 function animate(){
   requestAnimationFrame(animate);
   const t = Date.now()*0.001;
 
-  // "Дихання" зорі
+  // "Дихання" зірки
   for(let i=0;i<particleCount;i++){
     positions[i*3] += Math.sin(t+i*0.1)*0.01;
     positions[i*3+1] += Math.cos(t+i*0.1)*0.01;
     positions[i*3+2] += Math.sin(t+i*0.1)*0.01;
   }
 
-  applySolarFlares(t);
+  applySolarFlares();
 
   starParticles.attributes.position.needsUpdate = true;
 
