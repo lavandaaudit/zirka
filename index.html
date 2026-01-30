@@ -3,26 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IBONIRIUM · 3D Cosmic Space Weather</title>
+<title>IBONIRIUM · 3D Cosmic Weather Max</title>
 <style>
   body { margin:0; overflow:hidden; background:#0a0e14; }
   #info{
     position:absolute; top:16px; left:16px; font-family:monospace;
-    color:#aaffcc; font-size:12px; line-height:1.4; text-shadow:0 0 3px #000;
-    max-width:260px;
+    color:#aaffcc; font-size:11px; line-height:1.4; text-shadow:0 0 3px #000;
+    max-width:280px;
   }
   #info b{ color:#6fffa0; }
 </style>
 </head>
 <body>
+
 <div id="info">
-  <div>Solar Wind Speed: <b><span id="wind">–</span> km/s</b></div>
-  <div>Mag Field Bt: <b><span id="bt">–</span> nT</b></div>
-  <div>Mag Field Bz: <b><span id="bz">–</span> nT</b></div>
-  <div>K-index: <b><span id="kp">–</span></b></div>
-  <div>NOAA R‑Scale: <b><span id="rscale">–</span></b></div>
-  <div>NOAA S‑Scale: <b><span id="sscale">–</span></b></div>
-  <div>NOAA G‑Scale: <b><span id="gscale">–</span></b></div>
+  <div>Solar Wind Speed: <b><span id="wind_speed">–</span> km/s</b></div>
+  <div>Solar Wind Density: <b><span id="wind_den">–</span> /cm³</b></div>
+  <div>IMF Bt: <b><span id="bt">–</span> nT</b></div>
+  <div>IMF Bz: <b><span id="bz">–</span> nT</b></div>
+  <div>Planetary Kp: <b><span id="kp">–</span></b></div>
+  <div>Planetary Kp Forecast: <b><span id="kp_forecast">–</span></b></div>
+  <div>F10.7 Flux: <b><span id="f107">–</span> sfu</b></div>
+  <div>X‑ray Flux: <b><span id="xray">–</span></b></div>
+  <div>Proton Flux ≥10MeV: <b><span id="p10">–</span></b></div>
+  <div>Aurora Prob (N): <b><span id="aurora_n">–</span></b></div>
+  <div>Aurora Prob (S): <b><span id="aurora_s">–</span></b></div>
+  <div>Radio Scale: <b><span id="scaleR">–</span></b></div>
+  <div>Geomag Scale: <b><span id="scaleG">–</span></b></div>
+  <div>Solar Rad Scale: <b><span id="scaleS">–</span></b></div>
+  <div>Alerts: <b><span id="alerts">–</span></b></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
@@ -30,10 +39,10 @@
 
 <script>
 let scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0a0e14, 0.025);
+scene.fog = new THREE.FogExp2(0x0a0e14, 0.028);
 
 let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 2000);
-camera.position.set(0, 80, 220);
+camera.position.set(0, 80, 210);
 
 let renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,111 +52,122 @@ document.body.appendChild(renderer.domElement);
 let controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// ==========================
-// 3D ЗІРКА
-const count = 12000;
+// 3D зірка
+const count = 15000;
 let geom = new THREE.BufferGeometry();
 let pos = new Float32Array(count*3);
 let col = new Float32Array(count*3);
-
 for(let i=0; i<count; i++){
-  const r = 35 + Math.random()*15;
+  const r = 40 + Math.random()*20;
   const theta = Math.random()*Math.PI*2;
   const phi = Math.acos(2*Math.random()-1);
-
-  pos[3*i]   = r * Math.sin(phi)*Math.cos(theta);
-  pos[3*i+1] = r * Math.sin(phi)*Math.sin(theta);
-  pos[3*i+2] = r * Math.cos(phi);
-
-  col[3*i]   = 0.9 + Math.random()*0.1;
-  col[3*i+1] = 0.5 + Math.random()*0.4;
-  col[3*i+2] = 1.0;
+  pos[3*i]   = r*Math.sin(phi)*Math.cos(theta);
+  pos[3*i+1] = r*Math.sin(phi)*Math.sin(theta);
+  pos[3*i+2] = r*Math.cos(phi);
+  col[3*i]   = 0.8 + Math.random()*0.2;
+  col[3*i+1] = 0.3 + Math.random()*0.4;
+  col[3*i+2] = 0.9 + Math.random()*0.1;
 }
-
 geom.setAttribute('position', new THREE.BufferAttribute(pos,3));
 geom.setAttribute('color', new THREE.BufferAttribute(col,3));
 
 let mat = new THREE.PointsMaterial({
-  size: 2.2, vertexColors:true,
+  size:2.2, vertexColors:true,
   transparent:true, opacity:0.9,
-  depthWrite:false,
-  blending: THREE.AdditiveBlending
+  blending:THREE.AdditiveBlending,
+  depthWrite:false
 });
-
 let star = new THREE.Points(geom, mat);
 scene.add(star);
 
-let glow = new THREE.PointLight(0xffddaa, 1.0, 500);
+let glow = new THREE.PointLight(0xffddaa,1.0,500);
 scene.add(glow);
 
-// ==========================
-// Space Weather дані
-let windSpeed=0, Bt=0, Bz=0, kp=0;
-let Rscale="–", Sscale="–", Gscale="–";
+// Space weather variables
+let data = {
+  wind_speed:0, wind_den:0, bt:0, bz:0, kp:0, kp_forecast:0,
+  f107:0, xray:0, p10:0, aurora_n:0, aurora_s:0,
+  scaleR:'–', scaleG:'–', scaleS:'–', alerts:'–'
+};
 
-async function updateSpaceWeather(){
+async function updateSpaceData(){
   try{
-    // 1) SWPC NOAA космічні API JSON
-    // solar wind summary
-    const sw = await fetch('https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json');
-    const swd = await sw.json();
-    // магнітне поле
-    const mag = await fetch('https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json');
-    const magd = await mag.json();
-    // planetary kp
-    const kpdat = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json');
-    const kpjson = await kpdat.json();
-    // NOAA space weather scales
-    const scales = await fetch('https://services.swpc.noaa.gov/products/noaa-scales.json');
-    const scalesJson = await scales.json();
+    // Реальні JSON‑фіди NOAA SWPC
+    const windResp = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json');
+    const windJson = await windResp.json();
+    const magResp = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json');
+    const magJson = await magResp.json();
+    const kpResp = await fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json');
+    const kpJson = await kpResp.json();
+    const kpForResp = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json');
+    const kpForJson = await kpForResp.json();
+    const f107Resp = await fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json');
+    const f107Json = await f107Resp.json();
+    const xrayResp = await fetch('https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json');
+    const xrayJson = await xrayResp.json();
+    const pfluxResp = await fetch('https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json');
+    const pfluxJson = await pfluxResp.json();
+    const ovationResp = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json');
+    const ovationJson = await ovationResp.json();
+    const scalesResp = await fetch('https://services.swpc.noaa.gov/products/noaa-scales.json');
+    const scalesJson = await scalesResp.json();
+    const alertsResp = await fetch('https://services.swpc.noaa.gov/products/alerts.json');
+    const alertsJson = await alertsResp.json();
 
     // беремо останні записи
-    windSpeed = parseFloat(swd.wind_speed || swd[swd.length-1].wind_speed||0);
-    Bt = parseFloat(magd.Bt || magd[magd.length-1].Bt||0);
-    Bz = parseFloat(magd.Bz || magd[magd.length-1].Bz||0);
+    data.wind_speed = windJson[windJson.length-1]?.speed ?? data.wind_speed;
+    data.wind_den   = windJson[windJson.length-1]?.density ?? data.wind_den;
+    data.bt         = magJson[magJson.length-1]?.Bt ?? data.bt;
+    data.bz         = magJson[magJson.length-1]?.Bz ?? data.bz;
+    data.kp         = kpJson[kpJson.length-1]?.kp ?? data.kp;
+    data.kp_forecast = kpForJson[kpForJson.length-1]?.predicted_kp ?? data.kp_forecast;
+    data.f107       = f107Json[f107Json.length-1]?.f107 ?? data.f107;
+    data.xray       = xrayJson[xrayJson.length-1]?.flux ?? data.xray;
+    // Proton flux >=10MeV
+    data.p10        = pfluxJson[pfluxJson.length-1]?.protons_10_mev ?? data.p10;
+    // aurora probabilities
+    data.aurora_n   = ovationJson.probability_northern ?? data.aurora_n;
+    data.aurora_s   = ovationJson.probability_southern ?? data.aurora_s;
+    // NOAA scales
+    const latestScales = scalesJson[Object.keys(scalesJson).pop()];
+    data.scaleR = latestScales.R?.Scale ?? data.scaleR;
+    data.scaleG = latestScales.G?.Scale ?? data.scaleG;
+    data.scaleS = latestScales.S?.Scale ?? data.scaleS;
+    // Alerts
+    data.alerts = alertsJson.map(a => a.message).join('; ') || data.alerts;
 
-    kp = parseFloat(kpjson[kpjson.length-1]?.kp || 0);
-
-    const latestScale = scalesJson[ Object.keys(scalesJson).pop() ];
-    Rscale = latestScale.R.Scale;
-    Sscale = latestScale.S.Scale;
-    Gscale = latestScale.G.Scale;
-
-    document.getElementById('wind').textContent = windSpeed.toFixed(0);
-    document.getElementById('bt').textContent = Bt.toFixed(1);
-    document.getElementById('bz').textContent = Bz.toFixed(1);
-    document.getElementById('kp').textContent = kp;
-    document.getElementById('rscale').textContent = Rscale;
-    document.getElementById('sscale').textContent = Sscale;
-    document.getElementById('gscale').textContent = Gscale;
+    // Оновити UI
+    for(let k in data){
+      if(document.getElementById(k)){
+        document.getElementById(k).textContent = data[k];
+      }
+    }
   }
-  catch(e){ console.warn("Space weather fetch failed:",e); }
+  catch(e){ console.warn("fetch error", e); }
 }
 
-// початковий виклик і оновлення
-updateSpaceWeather();
-setInterval(updateSpaceWeather, 2*60*1000); // кожні 2 хв
+// Ініціалізація + повтор кожні 2 хв
+updateSpaceData();
+setInterval(updateSpaceData, 120*1000);
 
-// ==========================
 function animate(){
   requestAnimationFrame(animate);
   const t = Date.now()*0.001;
-
   let arr = geom.attributes.position.array;
-  for(let i=0; i<count; i++){
-    arr[3*i]   += Math.sin(t + i*0.01) * 0.01 * (windSpeed/300+1);
+  for(let i=0;i<count;i++){
+    arr[3*i]   += Math.sin(t + i*0.01) * 0.01 * (1 + data.wind_speed/600);
     arr[3*i+1] += Math.cos(t + i*0.02) * 0.008;
   }
-  geom.attributes.position.needsUpdate=true;
+  geom.attributes.position.needsUpdate = true;
 
-  // масштаб зірки залежить від KP індексу і solar wind
-  const scale = 1 + kp/10 + windSpeed/1000;
+  // Масштаб залежить від Kp і F10.7
+  const scale = 1 + data.kp/10 + Math.min(data.f107/300,1);
   star.scale.set(scale, scale, scale);
 
-  glow.intensity = 0.7 + kp/10 + Math.min(windSpeed/800,1);
+  glow.intensity = 0.6 + data.kp/12 + Math.min(data.kp_forecast/8,1);
 
   controls.update();
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 animate();
 
@@ -157,5 +177,6 @@ window.addEventListener('resize',()=>{
   renderer.setSize(window.innerWidth,window.innerHeight);
 });
 </script>
+
 </body>
 </html>
