@@ -14,7 +14,10 @@ html, body {
   font-family: monospace;
 }
 canvas { position:fixed; inset:0; }
-#sensors{ position:fixed; left:0; right:0; bottom:0; height:140px; pointer-events:none; }
+#sensors{
+  position:fixed; left:20px; bottom:10px;
+  width:220px; height:100px; pointer-events:none;
+}
 #info {
   position:fixed;
   top:20px; left:20px;
@@ -56,9 +59,10 @@ const sensorCanvas = document.getElementById('sensors');
 const scx = sensorCanvas.getContext('2d');
 
 function resize(){
-  starCanvas.width = tCanvas.width = sensorCanvas.width = innerWidth;
+  starCanvas.width = tCanvas.width = innerWidth;
   starCanvas.height = tCanvas.height = innerHeight;
-  sensorCanvas.height = 140;
+  sensorCanvas.width = 220;
+  sensorCanvas.height = 100;
 }
 addEventListener('resize', resize); resize();
 
@@ -103,7 +107,7 @@ class CosmicStar{
     this.currentRadius = this.radius + Math.sin(time*0.002)*12*solarFactor + (Math.random()-0.5)*4*solarFactor;
     this.particles.forEach(p=>{
       p.angle += p.speed*solarFactor;
-      p.radius += Math.sin(time*0.001+p.colorOffset)*0.3; // плавне пульсування
+      p.radius += Math.sin(time*0.001+p.colorOffset)*0.3;
     });
   }
   
@@ -112,7 +116,6 @@ class CosmicStar{
     tctx.save();
     tctx.translate(this.x,this.y);
     
-    // Основне світіння зірки
     const gradient = tctx.createRadialGradient(0,0,this.currentRadius*0.3,0,0,this.currentRadius);
     gradient.addColorStop(0,'rgba(255,255,180,'+(0.9*solarFactor)+')');
     gradient.addColorStop(0.4,'rgba(255,200,100,'+(0.7*solarFactor)+')');
@@ -124,7 +127,6 @@ class CosmicStar{
     tctx.arc(0,0,this.currentRadius,0,Math.PI*2);
     tctx.fill();
     
-    // Туманності (nebula)
     this.particles.forEach(p=>{
       const px = Math.cos(p.angle)*p.radius;
       const py = Math.sin(p.angle)*p.radius;
@@ -139,7 +141,6 @@ class CosmicStar{
   }
 }
 
-// Розташування поруч з описом
 const cosmicStar = new CosmicStar(120,100);
 
 /* ===== NOAA SOLAR API ===== */
@@ -161,31 +162,31 @@ updateSolar(); setInterval(updateSolar,1800000);
 /* ===== SENSORS ===== */
 function drawSensors(){
   scx.clearRect(0,0,sensorCanvas.width,sensorCanvas.height);
-  const baseY = 110;
+  const baseY = 70;
 
   scx.strokeStyle='rgba(120,255,180,0.25)';
   scx.beginPath(); scx.moveTo(0,baseY); scx.lineTo(sensorCanvas.width,baseY); scx.stroke();
 
   scx.fillStyle='rgba(255,200,120,0.8)';
   scx.beginPath();
-  scx.arc(80, baseY-40, 10+solarFactor*3, 0, Math.PI*2);
+  scx.arc(40, baseY-25, 8+solarFactor*2, 0, Math.PI*2);
   scx.fill();
-  scx.fillText('☀ сонце', 50, baseY+20);
+  scx.fillText('☀ сонце', 10, baseY+15);
 
   scx.strokeStyle='rgba(255,220,100,0.8)';
   scx.beginPath();
-  scx.moveTo(160, baseY);
-  scx.lineTo(160, baseY-starEnergy*25);
+  scx.moveTo(100, baseY);
+  scx.lineTo(100, baseY-starEnergy*20);
   scx.stroke();
-  scx.fillText('⭐ енергія', 140, baseY+20);
+  scx.fillText('⭐ енергія', 80, baseY+15);
 
   const now = new Date();
   const t = Math.min(1,(now-START_DATE)/(STOP_DATE-START_DATE));
   scx.strokeStyle='rgba(180,180,255,0.7)';
   scx.beginPath();
-  scx.arc(260, baseY, 30, -Math.PI/2, -Math.PI/2 + t*Math.PI*2);
+  scx.arc(170, baseY, 25, -Math.PI/2, -Math.PI/2 + t*Math.PI*2);
   scx.stroke();
-  scx.fillText('⏳ цикл', 235, baseY+20);
+  scx.fillText('⏳ цикл', 150, baseY+15);
 }
 
 /* ===== LOOP ===== */
