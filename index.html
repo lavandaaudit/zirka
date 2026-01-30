@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>IBONIRIUM · Terrarium · EXP‑01 · Star Simulation</title>
+<title>IBONIRIUM · Terrarium · EXP‑01 · Dynamic Geometric Star</title>
 
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -53,8 +53,8 @@ Target: 13 December
 
 <div id="panel">
 <b>СТАН ЕКСПЕРИМЕНТУ</b><br>
-Це живий космічний експеримент. Зірка пульсує та реагує на реальні сонячні дані NOAA. Швидкість пульсації, довжина променів та сяйво залежать від сонячної активності. <br><br>
-До <b>13 грудня</b> накопичується енергія зірки. У цей день експеримент переходить у фінальну фазу: пульсація стабілізується, стан фіксується.
+Геометрична зірка з хвилями енергії. Промені пульсують, обертаються та вигинаються відповідно до сонячної активності. <br><br>
+До <b>13 грудня</b> накопичується енергія зірки. Форма і пульсація фіксуються у фінальній фазі.
 </div>
 
 <script>
@@ -89,64 +89,73 @@ function drawStars(){
   sctx.globalAlpha=1;
 }
 
-/* ===== SIMPLE NOISE ===== */
-function noise(x,y){
-  return Math.sin(x*12.989+y*78.233)*43758.5453%1;
-}
-
 /* ===== ENV DATA ===== */
 let solarFactor = 1;
 let solarSSN = 0;
 let starEnergy = 0;
 
-/* ===== STAR SIMULATION ===== */
-class Star{
-  constructor(x, y){
+/* ===== DYNAMIC GEOMETRIC STAR ===== */
+class DynamicStar{
+  constructor(x,y,points=7){
     this.x = x;
     this.y = y;
-    this.baseRadius = 50;
-    this.pulse = 0;
-    this.beams = Array.from({length:30},()=>({angle:Math.random()*Math.PI*2, offset:Math.random()*Math.PI*2}));
+    this.points = points;
+    this.innerRadius = 30;
+    this.outerRadius = 70;
+    this.angleOffset = 0;
   }
   
   update(){
-    // пульсація ядра
-    this.pulse += 0.02 + 0.01*solarFactor;
+    const time = Date.now();
+    
+    // обертання зірки
+    this.angleOffset += 0.01 * solarFactor;
+    
+    // пульсація дихання
+    this.outerRadius = 70 + Math.sin(time*0.002)*20*solarFactor;
+    this.innerRadius = 30 + Math.sin(time*0.003 + 2)*10*solarFactor;
   }
   
   draw(){
-    const radius = this.baseRadius + Math.sin(this.pulse)*15*solarFactor;
+    const time = Date.now();
+    tctx.save();
+    tctx.translate(this.x,this.y);
+    tctx.rotate(this.angleOffset);
     
-    // ядро з диханням
-    const gradient = tctx.createRadialGradient(this.x,this.y, radius*0.1,this.x,this.y,radius);
-    gradient.addColorStop(0,'rgba(255,255,200,'+(0.9*solarFactor)+')');
-    gradient.addColorStop(0.3,'rgba(255,180,80,'+(0.6*solarFactor)+')');
+    // починаємо малювати хвилі променів
+    tctx.beginPath();
+    for(let i=0;i<this.points*2;i++){
+      const angle = i*Math.PI/this.points;
+      let r = (i%2===0)?this.outerRadius:this.innerRadius;
+      
+      // додамо хвилі енергії по амплітуді starEnergy
+      r += Math.sin(time*0.005 + i)*10*starEnergy;
+      
+      const x = Math.cos(angle)*r;
+      const y = Math.sin(angle)*r;
+      if(i===0) tctx.moveTo(x,y);
+      else tctx.lineTo(x,y);
+    }
+    tctx.closePath();
+    
+    // Gradient ядра і променів
+    const gradient = tctx.createRadialGradient(0,0,this.innerRadius,0,0,this.outerRadius*1.2);
+    gradient.addColorStop(0,'rgba(255,255,180,'+(0.9*solarFactor)+')');
+    gradient.addColorStop(0.5,'rgba(255,160,80,'+(0.6*solarFactor)+')');
     gradient.addColorStop(1,'rgba(255,100,50,0)');
     tctx.fillStyle = gradient;
-    tctx.beginPath();
-    tctx.arc(this.x,this.y,radius,0,Math.PI*2);
     tctx.fill();
     
-    // енергетичні промені (спалахи)
-    this.beams.forEach(b=>{
-      const length = radius*1.5 + Math.sin(Date.now()*0.003 + b.offset)*20*solarFactor;
-      tctx.strokeStyle = `rgba(255,220,120,${0.2 + 0.3*Math.random()})`;
-      tctx.lineWidth = 1 + Math.random()*1.5;
-      tctx.beginPath();
-      tctx.moveTo(this.x,this.y);
-      tctx.lineTo(this.x + Math.cos(b.angle)*length, this.y + Math.sin(b.angle)*length);
-      tctx.stroke();
-    });
+    // контур для чіткої геометрії
+    tctx.strokeStyle = `rgba(255,220,120,${0.5+0.3*Math.sin(time*0.005)})`;
+    tctx.lineWidth = 2;
+    tctx.stroke();
     
-    // легке розсіяне сяйво
-    tctx.fillStyle = `rgba(255,200,150,${0.05 + 0.05*Math.sin(this.pulse*0.5)})`;
-    tctx.beginPath();
-    tctx.arc(this.x,this.y,radius*2,0,Math.PI*2);
-    tctx.fill();
+    tctx.restore();
   }
 }
 
-const star = new Star(tCanvas.width/2, tCanvas.height/2);
+const star = new DynamicStar(tCanvas.width/2, tCanvas.height/2, 7);
 
 /* ===== NOAA SOLAR API ===== */
 async function updateSolar(){
