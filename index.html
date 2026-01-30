@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IBONIRIUM · 3D Cosmic Weather Max</title>
+<title>IBONIRIUM · 3D Cosmic Space Weather Live</title>
 <style>
   body { margin:0; overflow:hidden; background:#0a0e14; }
   #info{
     position:absolute; top:16px; left:16px; font-family:monospace;
     color:#aaffcc; font-size:11px; line-height:1.4; text-shadow:0 0 3px #000;
-    max-width:280px;
+    max-width:340px;
   }
   #info b{ color:#6fffa0; }
 </style>
@@ -22,16 +22,15 @@
   <div>IMF Bt: <b><span id="bt">–</span> nT</b></div>
   <div>IMF Bz: <b><span id="bz">–</span> nT</b></div>
   <div>Planetary Kp: <b><span id="kp">–</span></b></div>
-  <div>Planetary Kp Forecast: <b><span id="kp_forecast">–</span></b></div>
   <div>F10.7 Flux: <b><span id="f107">–</span> sfu</b></div>
-  <div>X‑ray Flux: <b><span id="xray">–</span></b></div>
-  <div>Proton Flux ≥10MeV: <b><span id="p10">–</span></b></div>
-  <div>Aurora Prob (N): <b><span id="aurora_n">–</span></b></div>
-  <div>Aurora Prob (S): <b><span id="aurora_s">–</span></b></div>
-  <div>Radio Scale: <b><span id="scaleR">–</span></b></div>
-  <div>Geomag Scale: <b><span id="scaleG">–</span></b></div>
-  <div>Solar Rad Scale: <b><span id="scaleS">–</span></b></div>
-  <div>Alerts: <b><span id="alerts">–</span></b></div>
+  <div>X‑ray Flux (GOES): <b><span id="xray">–</span></b></div>
+  <div>Proton Flux ≥10 MeV: <b><span id="p10">–</span></b></div>
+  <div>Aurora Prob (N): <b><span id="aurora_n">–</span>%</b></div>
+  <div>Aurora Prob (S): <b><span id="aurora_s">–</span>%</b></div>
+  <div>Radio Scale (R): <b><span id="scaleR">–</span></b></div>
+  <div>Geomag Scale (G): <b><span id="scaleG">–</span></b></div>
+  <div>Solar Rad Scale (S): <b><span id="scaleS">–</span></b></div>
+  <div>Last Update: <b><span id="last_update">–</span></b></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
@@ -42,7 +41,7 @@ let scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0a0e14, 0.028);
 
 let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 2000);
-camera.position.set(0, 80, 210);
+camera.position.set(0, 80, 220);
 
 let renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -83,95 +82,86 @@ scene.add(star);
 let glow = new THREE.PointLight(0xffddaa,1.0,500);
 scene.add(glow);
 
-// Space weather variables
-let data = {
-  wind_speed:0, wind_den:0, bt:0, bz:0, kp:0, kp_forecast:0,
+// Space weather data
+let spaceData = {
+  wind_speed:0, wind_den:0, bt:0, bz:0, kp:0,
   f107:0, xray:0, p10:0, aurora_n:0, aurora_s:0,
-  scaleR:'–', scaleG:'–', scaleS:'–', alerts:'–'
+  scaleR:'–', scaleG:'–', scaleS:'–', last_update:'–'
 };
 
-async function updateSpaceData(){
+async function fetchSpaceWeather(){
   try{
-    // Реальні JSON‑фіди NOAA SWPC
-    const windResp = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json');
-    const windJson = await windResp.json();
-    const magResp = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json');
-    const magJson = await magResp.json();
-    const kpResp = await fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json');
-    const kpJson = await kpResp.json();
-    const kpForResp = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json');
-    const kpForJson = await kpForResp.json();
-    const f107Resp = await fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json');
-    const f107Json = await f107Resp.json();
-    const xrayResp = await fetch('https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json');
-    const xrayJson = await xrayResp.json();
-    const pfluxResp = await fetch('https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json');
-    const pfluxJson = await pfluxResp.json();
-    const ovationResp = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json');
-    const ovationJson = await ovationResp.json();
-    const scalesResp = await fetch('https://services.swpc.noaa.gov/products/noaa-scales.json');
-    const scalesJson = await scalesResp.json();
-    const alertsResp = await fetch('https://services.swpc.noaa.gov/products/alerts.json');
-    const alertsJson = await alertsResp.json();
+    const wind = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json');
+    const windJson = await wind.json();
+    const mag  = await fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json');
+    const magJson = await mag.json();
+    const kpJson = await fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json').then(r=>r.json());
+    const f107Json = await fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json').then(r=>r.json());
+    const xrayJson = await fetch('https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json').then(r=>r.json());
+    const pfluxJson= await fetch('https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json').then(r=>r.json());
+    const ovation = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json').then(r=>r.json());
+    const scales = await fetch('https://services.swpc.noaa.gov/products/noaa-scales.json').then(r=>r.json());
 
-    // беремо останні записи
-    data.wind_speed = windJson[windJson.length-1]?.speed ?? data.wind_speed;
-    data.wind_den   = windJson[windJson.length-1]?.density ?? data.wind_den;
-    data.bt         = magJson[magJson.length-1]?.Bt ?? data.bt;
-    data.bz         = magJson[magJson.length-1]?.Bz ?? data.bz;
-    data.kp         = kpJson[kpJson.length-1]?.kp ?? data.kp;
-    data.kp_forecast = kpForJson[kpForJson.length-1]?.predicted_kp ?? data.kp_forecast;
-    data.f107       = f107Json[f107Json.length-1]?.f107 ?? data.f107;
-    data.xray       = xrayJson[xrayJson.length-1]?.flux ?? data.xray;
-    // Proton flux >=10MeV
-    data.p10        = pfluxJson[pfluxJson.length-1]?.protons_10_mev ?? data.p10;
-    // aurora probabilities
-    data.aurora_n   = ovationJson.probability_northern ?? data.aurora_n;
-    data.aurora_s   = ovationJson.probability_southern ?? data.aurora_s;
-    // NOAA scales
-    const latestScales = scalesJson[Object.keys(scalesJson).pop()];
-    data.scaleR = latestScales.R?.Scale ?? data.scaleR;
-    data.scaleG = latestScales.G?.Scale ?? data.scaleG;
-    data.scaleS = latestScales.S?.Scale ?? data.scaleS;
-    // Alerts
-    data.alerts = alertsJson.map(a => a.message).join('; ') || data.alerts;
+    const w = windJson[windJson.length-1]||windJson[0];
+    spaceData.wind_speed = w.speed || spaceData.wind_speed;
+    spaceData.wind_den   = w.density|| spaceData.wind_den;
 
-    // Оновити UI
-    for(let k in data){
-      if(document.getElementById(k)){
-        document.getElementById(k).textContent = data[k];
-      }
+    const m = magJson[magJson.length-1]||magJson[0];
+    spaceData.bt = m.Bt||spaceData.bt;
+    spaceData.bz = m.Bz||spaceData.bz;
+
+    const k = kpJson[kpJson.length-1]||kpJson[0];
+    spaceData.kp = k.kp||spaceData.kp;
+
+    const f = f107Json[f107Json.length-1]||f107Json[0];
+    spaceData.f107 = f.f107||spaceData.f107;
+
+    const xr = xrayJson[xrayJson.length-1]||xrayJson[0];
+    spaceData.xray = xr.flux||spaceData.xray;
+
+    const p  = pfluxJson[pfluxJson.length-1]||pfluxJson[0];
+    spaceData.p10 = p.protons_10_mev||spaceData.p10;
+
+    spaceData.aurora_n = ovation.probability_northern|| spaceData.aurora_n;
+    spaceData.aurora_s = ovation.probability_southern|| spaceData.aurora_s;
+
+    const sKeys = Object.keys(scales);
+    const latestScales = scales[sKeys[sKeys.length-1]];
+    spaceData.scaleR = latestScales.R?.Scale||spaceData.scaleR;
+    spaceData.scaleG = latestScales.G?.Scale||spaceData.scaleG;
+    spaceData.scaleS = latestScales.S?.Scale||spaceData.scaleS;
+
+    spaceData.last_update = new Date().toISOString().split('T')[1].split('.')[0];
+
+    for(let k in spaceData){
+      if(document.getElementById(k)) document.getElementById(k).textContent = spaceData[k];
     }
-  }
-  catch(e){ console.warn("fetch error", e); }
+  }catch(e){ console.warn("SW fetch error:",e); }
 }
-
-// Ініціалізація + повтор кожні 2 хв
-updateSpaceData();
-setInterval(updateSpaceData, 120*1000);
+fetchSpaceWeather();
+setInterval(fetchSpaceWeather, 120000);
 
 function animate(){
   requestAnimationFrame(animate);
   const t = Date.now()*0.001;
   let arr = geom.attributes.position.array;
-  for(let i=0;i<count;i++){
-    arr[3*i]   += Math.sin(t + i*0.01) * 0.01 * (1 + data.wind_speed/600);
+  for(let i=0; i<count; i++){
+    arr[3*i]   += Math.sin(t + i*0.01) * 0.01 * (1 + spaceData.wind_speed/600);
     arr[3*i+1] += Math.cos(t + i*0.02) * 0.008;
   }
-  geom.attributes.position.needsUpdate = true;
+  geom.attributes.position.needsUpdate=true;
 
-  // Масштаб залежить від Kp і F10.7
-  const scale = 1 + data.kp/10 + Math.min(data.f107/300,1);
+  const scale = 1 + spaceData.kp/10 + Math.min(spaceData.f107/300,1);
   star.scale.set(scale, scale, scale);
 
-  glow.intensity = 0.6 + data.kp/12 + Math.min(data.kp_forecast/8,1);
+  glow.intensity = 0.7 + spaceData.kp/10;
 
   controls.update();
-  renderer.render(scene, camera);
+  renderer.render(scene,camera);
 }
 animate();
 
-window.addEventListener('resize',()=>{
+window.addEventListener('resize', ()=>{
   camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight);
